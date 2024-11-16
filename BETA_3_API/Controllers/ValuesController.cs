@@ -115,10 +115,10 @@ namespace BETA_3_API.Controllers
                     switch (UTCode)
                     {
                         case 1:
-                            sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM ESBTTRAN1 WHERE MasterCode2 = {MCCode} And (Status Is Null Or Status = 0) And VchType = 108 UNION ALL SELECT 'Completed', COUNT(*) FROM ESBTTRAN1 WHERE [Status] = 1 And MasterCode2 = {MCCode} And VchType = 108";
+                            sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM ESBTTRAN1 WHERE MasterCode2 = {MCCode} And (Status Is Null Or Status = 0) And VchType = 108 UNION ALL SELECT 'Completed', COUNT(*) FROM ESBTTRAN1 WHERE [Status] IN (1, 3) And MasterCode2 = {MCCode} And VchType = 108";
                             break;
                         case 2:
-                            sql = $"SELECT 'Quotation' AS Name, COUNT(VchCode) AS Value FROM ESBTTRAN1 WHERE CREATEDBY = '{Users}' UNION ALL SELECT 'Pending Orders', COUNT(*) FROM ESBTTRAN1 WHERE QStatus = 1 And CREATEDBY = '{Users}' UNION ALL SELECT 'Completed Orders', COUNT(*) FROM ESJSLTRAN1 WHERE QStatus = 111 UNION ALL SELECT 'Replacement', COUNT(*) FROM ESJSLTRAN1 WHERE QStatus = 112 UNION ALL SELECT 'Invoice' , Count(*) FROM ESJSLTRAN1 WHERE QStatus = 112";
+                            sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM TRAN1 WHERE MasterCode2 = {MCCode} And [Flag] = 1 And [VchType] = 11 UNION ALL SELECT 'Completed', COUNT(*) FROM TRAN1 WHERE [MasterCode2] = {MCCode} And [Flag] = 2 And [VchType] = 11";
                             break;
                         case 3:
                             sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM ESBTTRAN1 WHERE MasterCode2 = {MCCode} And (Status Is Null Or Status = 0) And VchType = 108 UNION ALL SELECT 'Completed', COUNT(*) FROM ESBTTRAN1 WHERE [Status] = 1 And MasterCode2 = {MCCode} And VchType = 108";
@@ -170,16 +170,26 @@ namespace BETA_3_API.Controllers
                 SQLHELPER obj = new SQLHELPER(constr);
                 string formattedStartDate = string.IsNullOrEmpty(StartDate) ? "" : Busyhelper.FormatDate(StartDate);
                 string formattedEndDate = string.IsNullOrEmpty(EndDate) ? "" : Busyhelper.FormatDate(EndDate);
-                int QStatus = Status == 1 ? 0 : Status == 2 ? 1 : Status == 3 ? 2 : 0; string sql = string.Empty;
+                string sql = string.Empty;
                 DataTable DT1 = new DataTable();
 
                 switch (TranType)
                 {
                     case 1:
-                        sql = $"Select A.[VchCode], IsNull(A.[VchNo], '') as VchNo, Convert(Varchar, A.[Date], 105) as VchDate, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(M.[Name], '') as AccName, IsNull(A.[MasterCode2], 0) as MCCode, IsNull(M1.[Name], '') as MCName, IsNull(A.[Container], '') as Container, IsNull(A.[D1], 0) as TotCart, IsNull(A.[D2], 0) as TotQty, IsNull(A.[D3], 0) as TotPcs, (CASE WHEN A.[Status] = 1 Then 'Completed' WHEN A.[Status] = 2 Then 'Cancelled' ELSE 'Pending' END) as [Status] From ESBTTRAN1 A Left Join Master1 M On A.MasterCode1 = M.Code Left Join Master1 M1 On A.MasterCode2 = M1.Code Where A.[MasterCode2] = {MCCode} And A.VchType = 108";
-                        if (!string.IsNullOrEmpty(formattedStartDate) && !string.IsNullOrEmpty(formattedEndDate)) sql += $" And A.[Date] >= '{formattedStartDate}' And A.[Date] <= '{formattedEndDate}'"; sql += " Order By A.[VchCode] DESC, A.[Date] DESC";
+                        sql = $"Select A.[VchCode], IsNull(A.[VchNo], '') as VchNo, Convert(Varchar, A.[Date], 105) as VchDate, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(M.[Name], '') as AccName, IsNull(A.[MasterCode2], 0) as MCCode, IsNull(M1.[Name], '') as MCName, IsNull(A.[Container], '') as Container, IsNull(A.[D1], 0) as TotCart, IsNull(A.[D2], 0) as TotQty, IsNull(A.[D3], 0) as TotPcs, (CASE WHEN A.[Status] = 0 THEN 'Pending' WHEN A.[Status] IN (1, 3) Then 'Completed' WHEN A.[Status] = 2 Then 'Cancelled' ELSE 'Panding' END) as [Status] From ESBTTRAN1 A Left Join Master1 M On A.MasterCode1 = M.Code Left Join Master1 M1 On A.MasterCode2 = M1.Code Where A.[MasterCode2] = {MCCode} And A.VchType = 108 And A.[Status] <> 2 ";
+                        if (Status > 0) sql += (Status == 1) ? " And (A.[Status] Is Null OR A.[Status] = 0)" : " And (A.[Status] IN (1, 3))";
+                        if (!string.IsNullOrEmpty(formattedStartDate) && !string.IsNullOrEmpty(formattedEndDate)) sql += $" And A.[Date] >= '{formattedStartDate}' And A.[Date] <= '{formattedEndDate}'";
+
+                        break;
+                    case 2:
+
+                        sql = $"Select A.[VchCode], IsNull(LTrim(A.[VchNo]), '') as VchNo, Convert(Varchar, A.[Date], 105) as VchDate, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(A.[MasterCode2], 0) as MCCode, IsNull(M1.[Name], '') as AccName, IsNull(M2.[Name], '') as MCName, '' as Container, 0 as TotCart, IsNull((Sum(B.[Value1]) * (-1)), 0) as TotQty, 0 as TotPcs, (CASE WHEN A.[Flag] = 1 THEN 'Pending' WHEN A.[Flag] = 2 Then 'Completed' END) as [Status] From Tran1 A INNER JOIN TRAN2 B ON A.VchCode = B.VchCode Left Join Master1 M1 On A.[MasterCode1] = M1.Code Left Join Master1 M2 On A.[MasterCode2] = M2.Code Where A.VchType = 11 ";
+                        sql += Status == 0 ? "And Flag IN (1, 2)" : Status == 1 ? " And A.[Flag] = 1" : " And A.[Flag] = 2 ";
+                        sql += "Group By A.[VchCode], A.[VchNo], A.[Date], A.[MasterCode1], A.[MasterCode2], M1.[Name], M2.[Name], A.[Flag]";
+                        if (!string.IsNullOrEmpty(formattedStartDate) && !string.IsNullOrEmpty(formattedEndDate)) sql += $" And A.[Date] >= '{formattedStartDate}' And A.[Date] <= '{formattedEndDate}'"; 
                         break;
                 }
+                sql += " Order By A.[VchCode] DESC, A.[Date] DESC";
                 DT1 = obj.getTable(sql);
                 if (DT1 != null && DT1.Rows.Count > 0)
                 {
@@ -215,22 +225,30 @@ namespace BETA_3_API.Controllers
         }
 
         [HttpGet]
-        public dynamic GetVoucherItemsList(string CompCode, string FY, int VchCode)
+        public dynamic GetVoucherItemsList(string CompCode, string FY, int TranType, int VchCode)
         {
             List<GetVoucherItemsList> I_List = new List<GetVoucherItemsList>();
             try
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
-                SQLHELPER obj = new SQLHELPER(constr);
+                SQLHELPER obj = new SQLHELPER(constr); string sql = string.Empty;
 
-                string sql = $"Select A.SNo, A.[VchCode], IsNull(A.[ItemCode], 0) as ItemCode, IsNull(M.[Name], '') as ItemName, IsNull(A.[Value1], 0) as Carton, IsNull(A.[Value2], 0) as Qty, IsNull(A.[Value3], 0) as Pcs, IsNull((Select COUNT(BCN) as VAL From ESBTBCN B Where A.VchCode = B.VchCode And A.SNo = B.ISrNo And A.ItemCode = B.MasterCode2 And [Status] = 1 And Len(B.[BCN]) > 0), 0) as ScanQty From ESBTTRAN2 A INNER JOIN Master1 M On A.[ItemCode] = M.[Code] And M.[MasterType] = 6 Where A.[VchCode] = {VchCode} And A.[VchType] = 108 And A.RecType = 1 Order By A.[SNo], M.[Name]";
+                switch (TranType)
+                {
+                    case 1:
+                        sql = $"Select A.SNo, A.[VchCode], IsNull(A.[ItemCode], 0) as ItemCode, IsNull(M.[Name], '') as ItemName, IsNull(A.[Value1], 0) as Carton, IsNull(A.[Value2], 0) as Qty, IsNull(A.[Value3], 0) as Pcs, IsNull((Select COUNT(BCN) as VAL From ESBTBCN B Where A.VchCode = B.VchCode And A.SNo = B.ISrNo And A.ItemCode = B.MasterCode2 And [RecType] = 1 And [Status] = 1 And Len(B.[BCN]) > 0), 0) as ScanQty From ESBTTRAN2 A INNER JOIN Master1 M On A.[ItemCode] = M.[Code] And M.[MasterType] = 6 Where A.[VchCode] = {VchCode} And A.[VchType] = 108 And A.RecType = 1 Order By A.[SNo], M.[Name]";
+                        break;
+                    case 2:
+                        sql = $"Select A.SrNo as SNo, A.[VchCode], IsNull(A.[MasterCode1], 0) as ItemCode, IsNull(M1.[Name], '') as ItemName, 0 as Carton, (IsNull(A.[Value1], 0) * (-1)) as Qty, 0 as Pcs, IsNull((Select COUNT(BCN) as VAL From ESBTBCN B Where A.[VchCode] = B.[VchCode] And A.[SrNo] = B.[ISrNo] And A.[MasterCode1] = B.[MasterCode2] And B.[RecType] = 2 And [Status] = 1 And Len(B.[BCN]) > 0), 0) as ScanQty From TRAN2 A INNER JOIN Master1 M1 On A.[MasterCode1] = M1.[Code] And M1.[MasterType] = 6 Where A.[VchCode] = {VchCode} And A.[VchType] = 11 And A.RecType = 2 Order By A.[SrNo], M1.[Name]";
+                        break;
+                }
                 DataTable DT1 = obj.getTable(sql);
 
                 if (DT1 != null && DT1.Rows.Count > 0)
                 {
                     foreach (DataRow item in DT1.Rows)
                     {
-                        var GetBCNListDT = GetBCNDetailsList(CompCode, FY, Convert.ToInt32(item["VchCode"]), Convert.ToInt32(item["SNo"]), Convert.ToInt32(item["ItemCode"]));
+                        var GetBCNListDT = GetBCNDetailsList(CompCode, FY, TranType, Convert.ToInt32(item["VchCode"]), Convert.ToInt32(item["SNo"]), Convert.ToInt32(item["ItemCode"]));
                         I_List.Add(new GetVoucherItemsList
                         {
                             SNo = Convert.ToInt32(item["SNo"]),
@@ -257,14 +275,14 @@ namespace BETA_3_API.Controllers
             return new { Status = 1, Msg = "Success", Data = I_List };
         }
 
-        private dynamic GetBCNDetailsList(string CompCode, string FY, int VchCode, int ISNo, int ItemCode)
+        private dynamic GetBCNDetailsList(string CompCode, string FY, int TranType, int VchCode, int ISNo, int ItemCode)
         {
             List<GetBCNListDT> B_List = new List<GetBCNListDT>();
             try
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
-                
-                string sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And [ISrNo] = {ISNo} And MasterCode2 = {ItemCode} And [Status] = 1 Order By ISrNo, BCNSrNo, MasterCode2";
+
+                string sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {ISNo} And [MasterCode2] = {ItemCode} And [RecType] = {TranType} And [Status] = 1 Order By [ISrNo], [BCNSrNo], [MasterCode2]";
                 DataTable DT1 = new SQLHELPER(constr).getTable(sql);
 
                 if (DT1 != null && DT1.Rows.Count > 0)
@@ -295,14 +313,23 @@ namespace BETA_3_API.Controllers
         }
 
         [HttpGet]
-        public dynamic GetBCNDetailsValidate(string CompCode, string FY, int VchCode, string BCN)
+        public dynamic GetBCNDetailsValidate(string CompCode, string FY, int TranType, int VchCode, string BCN)
         {
-            GetBCNListDT B_List = new GetBCNListDT();
+            GetBCNListDT B_List = new GetBCNListDT(); string sql = string.Empty;
             try
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
 
-                string sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' And ([Status] Is Null OR [Status] IN (0, 1)) Order By ISrNo, BCNSrNo, MasterCode2";
+                switch (TranType)
+                {
+                    case 1:
+                        sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' And ([Status] Is Null OR [Status] IN (0, 1)) Order By ISrNo, BCNSrNo, MasterCode2";
+                        break;
+
+                    case 2:
+                        sql = $"Select VchCode, IsNull(CM1, 0) as AccCode, IsNull(VchItemSN, 0) as ISNo,  IsNull(ItemCode, 0) as ItemCode, IsNull(SrNo, 0) as SNo, IsNull(BCN, '') as BCN, (IsNull(Value1, 0) * (-1)) as Qty From ItemParamDet Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' Order By VchItemSN, SrNo, ItemCode";
+                        break;
+                }
                 DataTable DT1 = new SQLHELPER(constr).getTable(sql);
 
                 if (DT1 != null && DT1.Rows.Count > 0)
@@ -314,7 +341,17 @@ namespace BETA_3_API.Controllers
                     B_List.BCN = Convert.ToString(DT1.Rows[0]["BCN"]);
                     B_List.Qty = Convert.ToDecimal(DT1.Rows[0]["Qty"]);
 
-                    sql = $"Update ESBTBCN Set [Status] = 1 Where VchCode = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' ";
+                    if (TranType == 1)
+                    {
+                        sql = $"Update ESBTBCN Set [Status] = 1 Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' ";
+                    }
+                    else
+                    {
+                        sql = $"Delete From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}'" ;
+                        new SQLHELPER(constr).ExecuteSQL(sql);
+
+                        sql = $"INSERT INTO ESBTBCN ([VchCode], [RecType], [MasterCode1], [MasterCode2], [ISRNO], [BCNSRNO], [BCN], [AutoBCNNO], [Value1], [Value2], [Status]) Values ({Convert.ToInt32(DT1.Rows[0]["VchCode"])}, 2, {Convert.ToInt32(DT1.Rows[0]["AccCode"])}, {Convert.ToInt32(DT1.Rows[0]["ItemCode"])}, {Convert.ToInt32(DT1.Rows[0]["ISNo"])}, {Convert.ToInt32(DT1.Rows[0]["SNo"])}, '{Convert.ToString(DT1.Rows[0]["BCN"])}', 0,  {Convert.ToDouble(DT1.Rows[0]["Qty"])},  {Convert.ToDouble(DT1.Rows[0]["Qty"])}, 1)";
+                    }
                     int DT2 = new SQLHELPER(constr).ExecuteSQL(sql);
                 }
                 else
@@ -359,6 +396,32 @@ namespace BETA_3_API.Controllers
                 return new { Status = 0, Msg = ex.Message.ToString() };
             }
             return new { Status = Status, Msg = StatusStr };
+        }
+
+        [HttpPost]
+        public dynamic SaveMaterialOutwardBCN(S_Mat_Vch obj, string CompCode, string FY)
+        {
+            try
+            {
+                string constr = GetConnectionString(Provider, CompCode, FY);
+                string XML = CreateXML(obj.MItemsDetails);
+
+                string sql = $"Update Tran1 Set [Flag] = 2 Where VchCode = {obj.VchCode} And VchType = 11";
+                int DT1 = new SQLHELPER(constr).ExecuteSQL(sql);
+
+                if (DT1 == 1)
+                {
+                    return new { Status = 1, Msg = "Material Outward BCN saved successfully" };
+                }
+                else
+                {
+                    return new { Status = 1, Msg = "Material Outward Data Not Saved Check The Voucher" };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new { Status = 0, Msg = ex.Message.ToString() };
+            }
         }
 
         [HttpGet]
@@ -2136,46 +2199,6 @@ namespace BETA_3_API.Controllers
             return new { Status = 1, Msg = "Success", Data = slist };
         }
 
-        //[HttpGet]
-        //public dynamic GetStockTransferItemsDetails(string CompCode, string FY, int VchCode)
-        //{
-        //    List<GetVchItemsDT> sitem = new List<GetVchItemsDT>();
-        //    try
-        //    {
-        //        string constr = GetConnectionString(Provider, CompCode, FY);
-        //        SQLHELPER obj = new SQLHELPER(constr); var sno = 1;
-
-        //        string sql = $"Select A.[VchCode], IsNull(A.[ItemCode], 0) as ItemCode, IsNull(B.[Name], '') as ItemName, IsNull(A.[Qty], 0) as Qty, IsNull(A.[Price], 0) as Price, IsNull(A.[Amount], 0) as Amount From ESJSLTRAN2 A INNER JOIN Master1 B On A.[ItemCode] = B.[Code] And B.[MasterType] = 6 Where A.[VchCode] = {VchCode} And A.[VchType] = 109 And A.[RecType] = 1 Order By B.[Name]";
-        //        DataTable DT1 = obj.getTable(sql);
-
-        //        if (DT1 != null && DT1.Rows.Count > 0)
-        //        {
-        //            foreach (DataRow item in DT1.Rows)
-        //            {
-        //                sitem.Add(new GetVchItemsDT
-        //                {
-        //                    VchCode = Convert.ToInt32(item["VchCode"]),
-        //                    SNo = clsMain.MyInt(sno++),
-        //                    ItemCode = Convert.ToInt32(item["ItemCode"]),
-        //                    ItemName = clsMain.MyString(item["ItemName"]).Trim(),
-        //                    Qty = Convert.ToDecimal(item["Qty"]),
-        //                    Price = Convert.ToDecimal(item["Price"]),
-        //                    Amount = Convert.ToDecimal(item["Amount"]),
-        //                });
-        //            }
-        //        }
-        //        else
-        //        {
-        //            return new { Status = 0, Msg = "Data Not Found !!!", Data = sitem };
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return new { Status = -1, Msg = ex.Message.ToString(), Data = sitem, };
-        //    }
-        //    return new { Status = 1, Msg = "Success", Data = sitem };
-        //}
-
         private bool SaveVoucherFromXML(int VchType, bool Modify, string xmlStr, ref object VchCode, CFixedInterface fi, out string errMsg)
         {
             object err = "";
@@ -2203,7 +2226,6 @@ namespace BETA_3_API.Controllers
                 ErrMsg = ex.Message.ToString();
             }
         }
-
 
         public string GetStockTransferXML(int VchType, STVchDetail Inv, string VchNo, string VchSeriesName, string TMCName, ref double InvAmount, string ConnectionString)
         {
