@@ -120,19 +120,6 @@ namespace BETA_3_API.Controllers
                         case 2:
                             sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM TRAN1 WHERE MasterCode2 = {MCCode} And [Flag] = 1 And [VchType] = 11 UNION ALL SELECT 'Completed', COUNT(*) FROM TRAN1 WHERE [MasterCode2] = {MCCode} And [Flag] = 2 And [VchType] = 11";
                             break;
-                        case 3:
-                            sql = $"SELECT 'Pending' AS Name, COUNT(VchCode) AS Value FROM ESBTTRAN1 WHERE MasterCode2 = {MCCode} And (Status Is Null Or Status = 0) And VchType = 108 UNION ALL SELECT 'Completed', COUNT(*) FROM ESBTTRAN1 WHERE [Status] = 1 And MasterCode2 = {MCCode} And VchType = 108";
-
-                            break;
-                        case 4:
-                            sql = $"WITH Totals AS (SELECT A.VchCode, A.RefNo, ISNULL(T.TotQty, 0) AS TotQty FROM (SELECT DISTINCT A.RefCode AS VchCode, ISNULL(A.[RefNo], '') AS RefNo FROM ESJSLRefTran A INNER JOIN ESJSLTran1 B ON A.RefCode = B.VchCode WHERE A.RecType = 1 AND A.Method IN (1,2) AND B.[QStatus] = 1 AND B.Cancelled <> 1) A INNER JOIN (SELECT A.VchCode, A.RefNo, SUM(A.TQty) AS TotQty FROM (SELECT A.RefCode as VchCode, A.RefNo, A.MasterCode2, SUM(A.Value1) AS TQty FROM ESJSLRefTran A INNER JOIN Master1 M ON A.MasterCode2 = M.Code AND M.MasterType = 6 WHERE A.RecType = 1 And A.Method = 1 AND M.CM6 = {MCCode} GROUP BY A.RefCode, A.RefNo, A.MasterCode2) A GROUP BY A.VchCode, A.RefNo) T ON A.VchCode = T.VchCode AND A.RefNo = T.RefNo), " +
-                            $"Transfers AS (SELECT A.VchCode, A.RefNo, ISNULL(TR.TransQty, 0) AS TransQty FROM (SELECT DISTINCT A.VchCode, ISNULL(A.[RefNo], '') AS RefNo FROM ESJSLRefTran A INNER JOIN ESJSLTran1 B ON A.RefCode = B.VchCode WHERE A.RecType = 1 AND A.Method IN (1, 2) AND B.[QStatus] = 1 AND B.Cancelled <> 1) A INNER JOIN (SELECT A.VchCode, A.RefNo, SUM(A.TRQty) AS TransQty FROM (SELECT A.RefCode as VchCode, A.RefNo, A.MasterCode2, (IsNull(SUM(A.Value1), 0) * (-1)) AS TRQty FROM ESJSLRefTran A INNER JOIN Master1 M ON A.MasterCode2 = M.Code AND M.MasterType = 6 WHERE A.RecType = 1 And A.Method = 2 AND M.CM6 = {MCCode} GROUP BY A.RefCode, A.RefNo, A.MasterCode2) A GROUP BY A.VchCode, A.RefNo) TR ON A.VchCode = TR.VchCode AND A.RefNo = TR.RefNo)" +
-                            $"SELECT CASE WHEN T.TotQty = ISNULL(Tr.TransQty, 0) THEN 'Completed' ELSE 'Pending' END AS [Name], COUNT(*) As [Value] FROM Totals T LEFT JOIN Transfers Tr ON T.VchCode = Tr.VchCode AND T.RefNo = Tr.RefNo GROUP BY CASE WHEN T.TotQty = (ISNULL(Tr.TransQty, 0)) THEN 'Completed' ELSE 'Pending' END";
-
-                            break;
-                        case 5:
-                            sql = $"SELECT 'Quotation' AS Name, COUNT(VchCode) AS Value FROM ESJSLTRAN1 WHERE CREATEDBY = '{Users}' UNION ALL SELECT 'Pending Orders', COUNT(*) FROM ESJSLTRAN1 WHERE QStatus = 1 And CREATEDBY = '{Users}' UNION ALL SELECT 'Completed Orders', COUNT(*) FROM ESJSLTRAN1 WHERE QStatus = 111 UNION ALL SELECT 'Replacement', COUNT(*) FROM ESJSLTRAN1 WHERE QStatus = 112 UNION ALL SELECT 'Invoice' , Count(*) FROM ESJSLTRAN1 WHERE QStatus = 112";
-                            break;
                     }
                     DataTable DT1 = con.getTable(sql);
 
@@ -183,7 +170,7 @@ namespace BETA_3_API.Controllers
                         break;
                     case 2:
 
-                        sql = $"Select A.[VchCode], IsNull(LTrim(A.[VchNo]), '') as VchNo, Convert(Varchar, A.[Date], 105) as VchDate, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(A.[MasterCode2], 0) as MCCode, IsNull(M1.[Name], '') as AccName, IsNull(M2.[Name], '') as MCName, '' as Container, 0 as TotCart, IsNull((Sum(B.[Value1]) * (-1)), 0) as TotQty, 0 as TotPcs, (CASE WHEN A.[Flag] = 1 THEN 'Pending' WHEN A.[Flag] = 2 Then 'Completed' END) as [Status] From Tran1 A INNER JOIN TRAN2 B ON A.VchCode = B.VchCode Left Join Master1 M1 On A.[MasterCode1] = M1.Code Left Join Master1 M2 On A.[MasterCode2] = M2.Code Where A.VchType = 11 ";
+                        sql = $"Select A.[VchCode], IsNull(LTrim(A.[VchNo]), '') as VchNo, Convert(Varchar, A.[Date], 105) as VchDate, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(A.[MasterCode2], 0) as MCCode, IsNull(M1.[Name], '') as AccName, IsNull(M2.[Name], '') as MCName, '' as Container, IsNull((select COUNT(BCN) as TotCart From ItemParamDet Where VchCode = A.VchCode And VchType = 11), 0) as TotCart, IsNull((Sum(B.[Value1]) * (-1)), 0) as TotQty, 0 as TotPcs, (CASE WHEN A.[Flag] = 1 THEN 'Pending' WHEN A.[Flag] = 2 Then 'Completed' END) as [Status] From Tran1 A INNER JOIN TRAN2 B ON A.VchCode = B.VchCode Left Join Master1 M1 On A.[MasterCode1] = M1.Code Left Join Master1 M2 On A.[MasterCode2] = M2.Code Where A.VchType = 11 ";
                         sql += Status == 0 ? "And Flag IN (1, 2)" : Status == 1 ? " And A.[Flag] = 1" : " And A.[Flag] = 2 ";
                         sql += "Group By A.[VchCode], A.[VchNo], A.[Date], A.[MasterCode1], A.[MasterCode2], M1.[Name], M2.[Name], A.[Flag]";
                         if (!string.IsNullOrEmpty(formattedStartDate) && !string.IsNullOrEmpty(formattedEndDate)) sql += $" And A.[Date] >= '{formattedStartDate}' And A.[Date] <= '{formattedEndDate}'"; 
@@ -282,7 +269,7 @@ namespace BETA_3_API.Controllers
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
 
-                string sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {ISNo} And [MasterCode2] = {ItemCode} And [RecType] = {TranType} And [Status] = 1 Order By [ISrNo], [BCNSrNo], [MasterCode2]";
+                string sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {ISNo} And [MasterCode2] = {ItemCode} And [RecType] = {TranType} And [Status] IN (1, 2) Order By [ISrNo], [BCNSrNo], [MasterCode2]";
                 DataTable DT1 = new SQLHELPER(constr).getTable(sql);
 
                 if (DT1 != null && DT1.Rows.Count > 0)
@@ -404,10 +391,12 @@ namespace BETA_3_API.Controllers
             try
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
-                string XML = CreateXML(obj.MItemsDetails);
+                string XML = CreateXML(obj.MItemsDetails); string sql = string.Empty;
 
-                string sql = $"Update Tran1 Set [Flag] = 2 Where VchCode = {obj.VchCode} And VchType = 11";
+                sql = $"Update Tran1 Set [Flag] = 2 Where VchCode = {obj.VchCode} And VchType = 11";
                 int DT1 = new SQLHELPER(constr).ExecuteSQL(sql);
+
+                new SQLHELPER(constr).ExecuteSQL($"Update ESBTBCN Set [Status] = 2 Where [VchCode] = {obj.VchCode} And [RecType] = 2");
 
                 if (DT1 == 1)
                 {
