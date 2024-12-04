@@ -25,6 +25,7 @@ namespace BETA_3_API.Models
 
     public class Dashboard
     {
+        public string UType { get; set; }
         public string Name { get; set; }
         public int Values { get; set; }
     }
@@ -74,6 +75,7 @@ namespace BETA_3_API.Models
         public int VchCode { get; set; }
         public int VchType { get; set; }
         public int Status { get; set; }
+        public string Users { get; set; }
         public List<MItemDetails> MItemsDetails { get; set; }
     }
     public class MItemDetails

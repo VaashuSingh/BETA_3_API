@@ -10,8 +10,8 @@ namespace BETA_3_API.Controllers
 {
     public class HomeController : Controller
     {
-        string ConnectionString = ConfigurationManager.ConnectionStrings["ConString"].ToString();
-        private string WebApi = clsMain.MyString(System.Configuration.ConfigurationManager.AppSettings["WebApi"]);
+        //string ConnectionString = ConfigurationManager.ConnectionStrings["ConString"].ToString();
+        //private string WebApi = clsMain.MyString(System.Configuration.ConfigurationManager.AppSettings["WebApi"]);
 
         public ActionResult Index()
         {
