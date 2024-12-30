@@ -321,6 +321,61 @@ namespace BETA_3_API.Controllers
             return new { Status = 1, Msg = "Success", Data = B_List };
         }
 
+        //[HttpGet]
+        //public dynamic GetBCNDetailsValidate(string CompCode, string FY, int TranType, int VchCode, string BCN)
+        //{
+        //    GetBCNListDT B_List = new GetBCNListDT(); string sql = string.Empty;
+        //    try
+        //    {
+        //        string constr = GetConnectionString(Provider, CompCode, FY);
+
+        //        switch (TranType)
+        //        {
+        //            case 1:
+        //                sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' And ([Status] Is Null OR [Status] IN (0, 1)) Order By ISrNo, BCNSrNo, MasterCode2";
+        //                break;
+
+        //            case 2:
+        //                sql = $"Select VchCode, IsNull(CM1, 0) as AccCode, IsNull(VchItemSN, 0) as ISNo,  IsNull(ItemCode, 0) as ItemCode, IsNull(SrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBZItemParamDet Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' Order By VchItemSN, SrNo, ItemCode";
+        //                break;
+        //        }
+        //        DataTable DT1 = new SQLHELPER(constr).getTable(sql);
+
+        //        if (DT1 != null && DT1.Rows.Count > 0)
+        //        {
+        //            B_List.VchCode = Convert.ToInt32(DT1.Rows[0]["VchCode"]);
+        //            B_List.ISNo = Convert.ToInt32(DT1.Rows[0]["ISNo"]);
+        //            B_List.ItemCode = Convert.ToInt32(DT1.Rows[0]["ItemCode"]);
+        //            B_List.SNo = Convert.ToInt32(DT1.Rows[0]["SNo"]);
+        //            B_List.BCN = Convert.ToString(DT1.Rows[0]["BCN"]);
+        //            B_List.Qty = Convert.ToDecimal(DT1.Rows[0]["Qty"]);
+
+        //            if (TranType == 1)
+        //            {
+        //                sql = $"Update ESBTBCN Set [Status] = 1 Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 1";
+        //            }
+        //            else
+        //            {
+        //                sql = $"Delete From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 2" ;
+        //                new SQLHELPER(constr).ExecuteSQL(sql);
+
+        //                sql = $"INSERT INTO ESBTBCN ([VchCode], [RecType], [MasterCode1], [MasterCode2], [ISRNO], [BCNSRNO], [BCN], [AutoBCNNO], [Value1], [Value2], [Status]) Values ({Convert.ToInt32(DT1.Rows[0]["VchCode"])}, 2, {Convert.ToInt32(DT1.Rows[0]["AccCode"])}, {Convert.ToInt32(DT1.Rows[0]["ItemCode"])}, {Convert.ToInt32(DT1.Rows[0]["ISNo"])}, {Convert.ToInt32(DT1.Rows[0]["SNo"])}, '{Convert.ToString(DT1.Rows[0]["BCN"])}', 0,  {Convert.ToDouble(DT1.Rows[0]["Qty"])},  {Convert.ToDouble(DT1.Rows[0]["Qty"])}, 1)";
+        //            }
+        //            int DT2 = new SQLHELPER(constr).ExecuteSQL(sql);
+        //        }
+        //        else
+        //        {
+        //            throw new Exception("BCN Not Found !!!");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return new { Status = 0, Msg = ex.Message.ToString() };
+        //    }
+        //    return new { Status = 1, Msg = "BCN Valid", Data = B_List };
+        //}
+
+
         [HttpGet]
         public dynamic GetBCNDetailsValidate(string CompCode, string FY, int TranType, int VchCode, string BCN)
         {
@@ -328,11 +383,27 @@ namespace BETA_3_API.Controllers
             try
             {
                 string constr = GetConnectionString(Provider, CompCode, FY);
-
+                
                 switch (TranType)
                 {
                     case 1:
-                        sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' And ([Status] Is Null OR [Status] IN (0, 1)) Order By ISrNo, BCNSrNo, MasterCode2";
+
+                        BCN = BCN.Replace('；', ';');
+                        string[] bcnParts = BCN.Split(';').Select(b => b.Trim()).ToArray();
+
+                        if (bcnParts.Length != 2)
+                        {
+                            throw new Exception($"Invalid BCNSTR format: {bcnParts}");
+                        }
+
+                        string itemAliasOrName = bcnParts[0].Trim();
+                        string bcn = Convert.ToString(bcnParts[1].Trim());
+
+                        var itemDetails = ValidateItemNameInBusy(VchCode, bcnParts[0].Trim(), constr);
+
+                        //sql = $"Select VchCode, IsNull(ISrNo, 0) as ISNo, IsNull(MasterCode2, 0) as ItemCode, IsNull(BCNSrNo, 0) as SNo, IsNull(BCN, '') as BCN, IsNull(Value1, 0) as Qty From ESBTBCN Where VchCode = {VchCode} And BCN = '{BCN.Replace("'", "''")}' And ([Status] Is Null OR [Status] IN (0, 1)) Order By ISrNo, BCNSrNo, MasterCode2";
+
+                        sql = $"Select A.VchCode, IsNull(A.[MasterCode1], 0) as AccCode, IsNull(B.[SNo], 0) as ISNo, IsNull(B.[ItemCode], 0) as ItemCode, IsNull(B.[Value2], 0) as Qty, (IsNull((Select MAX(B.BcnSrNo) From ESBTBCN B Where B.VchCode = A.VchCode), 0) + 1) as SNo, '{bcn}' as BCN From ESBTTran1 A INNER JOIN ESBTTran2 B ON A.[VchCode] = B.[VchCode] Where A.[VchCode] = {VchCode} And B.[ItemCode] = {itemDetails?.Code} Order By B.[SNo], B.ItemCode";
                         break;
 
                     case 2:
@@ -352,16 +423,21 @@ namespace BETA_3_API.Controllers
 
                     if (TranType == 1)
                     {
-                        sql = $"Update ESBTBCN Set [Status] = 1 Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 1";
+                        //sql = $"Update ESBTBCN Set [Status] = 1 Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 1";
+
+                        new SQLHELPER(constr).getTable($"Delete From ESBTBCN Where [RecType] = 1 And [VchCode] = {Convert.ToInt32(DT1.Rows[0]["VchCode"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{Convert.ToString(DT1.Rows[0]["BCN"])}'");
+
+                        sql = $"INSERT INTO ESBTBCN ([VchCode], [RecType], [MasterCode1], [MasterCode2], [ISRNO], [BCNSRNO], [BCN], [AutoBCNNO], [Value1], [Value2], [Status]) Values ({Convert.ToInt32(DT1.Rows[0]["VchCode"])}, 1, {Convert.ToInt32(DT1.Rows[0]["AccCode"])}, {Convert.ToInt32(DT1.Rows[0]["ItemCode"])}, {Convert.ToInt32(DT1.Rows[0]["ISNo"])}, {Convert.ToInt32(DT1.Rows[0]["SNo"])}, '{Convert.ToString(DT1.Rows[0]["BCN"])}', 0,  {Convert.ToDouble(DT1.Rows[0]["Qty"])},  {Convert.ToDouble(DT1.Rows[0]["Qty"])}, 1)";
+                        int DT2 = new SQLHELPER(constr).ExecuteSQL(sql);
                     }
                     else
                     {
-                        sql = $"Delete From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 2" ;
+                        sql = $"Delete From ESBTBCN Where [VchCode] = {VchCode} And [ISrNo] = {Convert.ToInt32(DT1.Rows[0]["ISNo"])} And [MasterCode2] = {Convert.ToInt32(DT1.Rows[0]["ItemCode"])} And [BCN] = '{BCN}' And RecType = 2";
                         new SQLHELPER(constr).ExecuteSQL(sql);
 
                         sql = $"INSERT INTO ESBTBCN ([VchCode], [RecType], [MasterCode1], [MasterCode2], [ISRNO], [BCNSRNO], [BCN], [AutoBCNNO], [Value1], [Value2], [Status]) Values ({Convert.ToInt32(DT1.Rows[0]["VchCode"])}, 2, {Convert.ToInt32(DT1.Rows[0]["AccCode"])}, {Convert.ToInt32(DT1.Rows[0]["ItemCode"])}, {Convert.ToInt32(DT1.Rows[0]["ISNo"])}, {Convert.ToInt32(DT1.Rows[0]["SNo"])}, '{Convert.ToString(DT1.Rows[0]["BCN"])}', 0,  {Convert.ToDouble(DT1.Rows[0]["Qty"])},  {Convert.ToDouble(DT1.Rows[0]["Qty"])}, 1)";
+                        int DT2 = new SQLHELPER(constr).ExecuteSQL(sql);
                     }
-                    int DT2 = new SQLHELPER(constr).ExecuteSQL(sql);
                 }
                 else
                 {
@@ -373,6 +449,38 @@ namespace BETA_3_API.Controllers
                 return new { Status = 0, Msg = ex.Message.ToString() };
             }
             return new { Status = 1, Msg = "BCN Valid", Data = B_List };
+        }
+
+        private UnknowList ValidateItemNameInBusy(int VchCode, string ItemName, string ConStr)
+        {
+            // Ensure input validation
+            if (string.IsNullOrWhiteSpace(ItemName))
+                throw new ArgumentException("Item name cannot be null or empty.", nameof(ItemName));
+
+            if (string.IsNullOrWhiteSpace(ConStr))
+                throw new ArgumentException("Connection string cannot be null or empty.", nameof(ConStr));
+
+            UnknowList itemDetails = null;
+            try
+            {
+
+                string sql = $"Select Top 1 IsNull([ItemCode], 0) as ItemCode, IsNull([ItemName], '') as ItemName From ESBTTran2 Where VchCode = {VchCode} And ([ItemName] = '{ItemName}' Or ItemAlias = '{ItemName}')";
+                DataTable DT1 = new SQLHELPER(ConStr).getTable(sql);
+
+                if (DT1 != null && DT1.Rows.Count > 0)
+                {
+                    itemDetails = new UnknowList
+                    {
+                        Code = Convert.ToInt32(DT1.Rows[0]["ItemCode"]),
+                        Name = Convert.ToString(DT1.Rows[0]["ItemName"])
+                    };
+                }
+            }
+            catch(Exception ex)
+            {
+                throw new Exception($"Error validating item name: {ex.Message}", ex);
+            }
+            return itemDetails ?? throw new Exception($"Item name : '{ItemName}' not belong to this voucher.");
         }
 
         [HttpPost]
